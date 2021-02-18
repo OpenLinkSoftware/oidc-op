@@ -4,10 +4,12 @@
  * Dependencies
  * @ignore
  */
-const crypto = require('@trust/webcrypto')
 const { URL, URLSearchParams } = require('whatwg-url')
 
 const HandledError = require('../errors/HandledError')
+
+const Debug = require('debug')
+const debug = new Debug('oidc-op')
 
 /**
  * Request Parameter Mapping
@@ -287,20 +289,9 @@ class BaseRequest {
    * Internal Server Error
    */
   internalServerError (err) {
-    // TODO: Debug logging here
+    debug('Internal Server Error:', err ? err.message : err)
     let {res} = this
     res.status(500).send('Internal Server Error')
-  }
-
-
-
-  /**
-   * TODO
-   * This doesn't belong here.
-   */
-  random (byteLen) {
-    let value = crypto.getRandomValues(new Uint8Array(byteLen))
-    return Buffer.from(value).toString('hex')
   }
 }
 

@@ -8,9 +8,9 @@ const DEFAULT_MAX_AGE = 1209600  // Default ID token expiration, in seconds
 const DEFAULT_SIG_ALGORITHM = 'RS256'
 
 /**
- * IDToken
+ * DpopIDToken
  */
-class IDToken extends JWT {
+class DpopIDToken extends JWT {
   /**
    * issue
    *
@@ -36,12 +36,12 @@ class IDToken extends JWT {
    * @param [options.cnf] {Object} Proof of Possession confirmation key, see
    *   https://tools.ietf.org/html/rfc7800#section-3.1
    *
-   * @returns {IDToken} ID Token (JWT instance)
+   * @returns {DpopIDToken} ID Token (JWT instance)
    */
   static issue (provider, options) {
     let { issuer, keys } = provider
 
-    let { aud, azp, sub, nonce, at_hash, c_hash, cnf } = options
+    let { aud, azp, sub, at_hash, c_hash, cnf } = options
 
     let alg = options.alg || DEFAULT_SIG_ALGORITHM
     let jti = options.jti || random(8)
@@ -55,13 +55,13 @@ class IDToken extends JWT {
     let kid = keys['id_token'].signing[alg].publicJwk.kid
 
     let header = { alg, kid }
-    let payload = { iss, aud, azp, sub, exp, iat, jti, nonce }
+    let payload = { iss, aud, azp, sub, exp, iat, jti }
 
     if (at_hash) { payload.at_hash = at_hash }
     if (c_hash) { payload.c_hash = c_hash }
     if (cnf) { payload.cnf = cnf }
 
-    let jwt = new IDToken({ header, payload, key })
+    let jwt = new DpopIDToken({ header, payload, key })
 
     return jwt
   }
@@ -70,12 +70,13 @@ class IDToken extends JWT {
    * issueForRequest
    */
   static issueForRequest (request, response) {
+    // TODO: Implement id_vc
     let {params, code, provider, client, subject} = request
 
     let alg = client['id_token_signed_response_alg'] || DEFAULT_SIG_ALGORITHM
     let jti = random(8)
     let iat = Math.floor(Date.now() / 1000)
-    let aud, azp, sub, max, nonce
+    let aud, azp, sub, max
 
     // authentication request
     if (!code) {
@@ -83,7 +84,6 @@ class IDToken extends JWT {
       azp = client['client_id']
       sub = subject['_id']
       max = parseInt(params['max_age']) || client['default_max_age'] || DEFAULT_MAX_AGE
-      nonce = params.nonce
 
     // token request
     } else {
@@ -91,7 +91,6 @@ class IDToken extends JWT {
       azp = code.azp || aud
       sub = code.sub
       max = parseInt(code['max']) || client['default_max_age'] || DEFAULT_MAX_AGE
-      nonce = code.nonce
     }
 
     let len = alg.match(/(256|384|512)$/)[0]
@@ -106,13 +105,13 @@ class IDToken extends JWT {
       .then(hashes => {
         let [at_hash, c_hash] = hashes
 
-        let options = { alg, aud, azp, sub, iat, jti, nonce, at_hash, c_hash }
+        let options = { alg, aud, azp, sub, iat, jti, at_hash, c_hash }
 
         if (request.cnfKey) {
           options.cnf = { jwk: request.cnfKey }
         }
 
-        return IDToken.issue(provider, options)
+        return DpopIDToken.issue(provider, options)
       })
 
       // sign id token
@@ -128,10 +127,10 @@ class IDToken extends JWT {
   }
 }
 
-IDToken.DEFAULT_MAX_AGE = DEFAULT_MAX_AGE
-IDToken.DEFAULT_SIG_ALGORITHM = DEFAULT_SIG_ALGORITHM
+DpopIDToken.DEFAULT_MAX_AGE = DEFAULT_MAX_AGE
+DpopIDToken.DEFAULT_SIG_ALGORITHM = DEFAULT_SIG_ALGORITHM
 
 /**
  * Export
  */
-module.exports = IDToken
+module.exports = DpopIDToken
